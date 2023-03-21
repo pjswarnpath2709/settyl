@@ -8,7 +8,7 @@ const {
 exports.getAllEmployee = async (req, res, next) => {
   try {
     const totalEmployees = await Employee.countDocuments();
-    const employees = await Employee.find();
+    const employees = await Employee.find().sort({ createdAt: -1 });
     if (!employees) {
       throw throwError(errorMessage.EmployeeNotFound);
     }
@@ -26,7 +26,6 @@ exports.getAllEmployee = async (req, res, next) => {
 exports.getEmployee = async (req, res, next) => {
   try {
     const { employeeId } = req.params;
-    console.log("\x1b[35m", "👉👉👉 employeeId :", employeeId);
     const employee = await Employee.findById(employeeId);
 
     if (!employee) {
@@ -83,6 +82,65 @@ exports.updateEmployee = async (req, res, next) => {
     res.status(201).json({
       message: "update successful",
       employee: employee._doc,
+    });
+  } catch (err) {
+    setDefaultStatus(err);
+    next(err);
+  }
+};
+
+exports.deleteEmployee = async (req, res, next) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId);
+    if (!employee) {
+      throw throwError(errorMessage.EmployeeNotFound);
+    }
+    await employee.deleteOne();
+    res.status(200).json({
+      message: "employee deleted",
+      employee: employee._doc,
+    });
+  } catch (err) {
+    setDefaultStatus(err);
+    next(err);
+  }
+};
+
+exports.getAnalytics = async (req, res, next) => {
+  try {
+    const totalEmployees = await Employee.countDocuments();
+
+    const departmentNames = await Employee.distinct("department");
+
+    const departmentData = await Promise.all(
+      departmentNames.map(async (department) => {
+        const departmentCount = await Employee.countDocuments({ department });
+        return {
+          department,
+          departmentCount,
+        };
+      })
+    );
+
+    const statusNames = await Employee.distinct("status");
+
+    const statusData = await Promise.all(
+      statusNames.map(async (status) => {
+        const statusCount = await Employee.countDocuments({ status });
+        return {
+          status,
+          statusCount,
+        };
+      })
+    );
+
+    res.status(200).json({
+      message: "data fetched",
+      data: {
+        totalEmployees,
+        departmentData,
+        statusData,
+      },
     });
   } catch (err) {
     setDefaultStatus(err);
